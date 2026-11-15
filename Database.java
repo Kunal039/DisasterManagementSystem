@@ -83,6 +83,7 @@ public final class Database {
     }
 
     private static String url;
+    private static String user;
     private static String password;
 
     private Database() { }
@@ -90,7 +91,9 @@ public final class Database {
     /** Loads the JDBC driver and creates the tables if they do not exist. */
     public static synchronized void init() throws SQLException {
         // -Ddms.db.url=... on the command line can replace the URL (useful for testing)
-        url = System.getProperty("dms.db.url", URL);
+        // or the environment variable DMS_DB_URL (used on a hosting service)
+        url = System.getProperty("dms.db.url", Settings.value("DMS_DB_URL", URL));
+        user = Settings.value("DMS_DB_USER", USER);
         password = System.getenv().getOrDefault("DMS_DB_PASSWORD", "");
 
         String driver = url.startsWith("jdbc:mysql:") ? "com.mysql.cj.jdbc.Driver" : "org.h2.Driver";
@@ -109,7 +112,7 @@ public final class Database {
 
     public static Connection getConnection() throws SQLException {
         if (url == null) throw new SQLException("Database.init() has not been called");
-        return DriverManager.getConnection(url, USER, password);
+        return DriverManager.getConnection(url, user, password);
     }
 
     /**

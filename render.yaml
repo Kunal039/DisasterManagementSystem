@@ -1,0 +1,13 @@
+# Render "Blueprint": tells Render how to run this repository.
+# In Render choose New > Blueprint and select this repository.
+services:
+  - type: web
+    name: disaster-management-system
+    runtime: docker
+    plan: free
+    healthCheckPath: /login
+    envVars:
+      # Secret code needed to create the first (administrator) account.
+      # Render generates a random value; read it under the service's Environment tab.
+      - key: DMS_SETUP_CODE
+        generateValue: true

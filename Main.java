@@ -1,6 +1,7 @@
 import org.apache.catalina.Context;
 import org.apache.catalina.connector.Connector;
 import org.apache.catalina.startup.Tomcat;
+import org.apache.catalina.valves.RemoteIpValve;
 import org.apache.tomcat.util.http.Rfc6265CookieProcessor;
 
 import jakarta.servlet.http.HttpServlet;
@@ -26,14 +27,12 @@ public class Main {
     private static final Logger TOMCAT_LOG = Logger.getLogger("org.apache");
 
     public static void main(String[] args) throws Exception {
-        int port = 8080;
-        if (args.length > 0) {
-            try {
-                port = Integer.parseInt(args[0]);
-            } catch (NumberFormatException e) {
-                System.err.println("The port must be a number, for example: java Run.java 9090");
-                return;
-            }
+        int port;
+        try {
+            port = Settings.port(args);
+        } catch (IllegalArgumentException e) {
+            System.err.println(e.getMessage() + "  Example: java Run.java 9090");
+            return;
         }
 
         Database.init();
@@ -48,8 +47,17 @@ public class Main {
         tomcat.setPort(port);
 
         Connector connector = tomcat.getConnector();
-        connector.setProperty("address", "127.0.0.1");   // reachable only from this computer
+        connector.setProperty("address", Settings.bindAddress());   // default: reachable only from this computer
         connector.setThrowOnFailure(true);               // fail clearly if the port is already in use
+
+        if (Settings.isPublic()) {
+            // A hosting service puts an HTTPS proxy in front of the application. This valve reads the
+            // proxy's X-Forwarded-Proto header, so Tomcat knows the visitor uses HTTPS and marks the
+            // session cookie "Secure" (sent over HTTPS only).
+            RemoteIpValve proxy = new RemoteIpValve();
+            proxy.setProtocolHeader("X-Forwarded-Proto");
+            tomcat.getHost().getPipeline().addValve(proxy);
+        }
 
         Context context = tomcat.addContext("", workFolder.toString());
         Rfc6265CookieProcessor cookies = new Rfc6265CookieProcessor();
@@ -76,8 +84,12 @@ public class Main {
 
         System.out.println();
         System.out.println("Disaster Management System is running.");
-        System.out.println("Open http://localhost:" + port + " in your browser.");
-        System.out.println("Press Ctrl+C to stop.");
+        if (Settings.isPublic()) {
+            System.out.println("Listening on " + Settings.bindAddress() + ":" + port + " (reachable from the network).");
+        } else {
+            System.out.println("Open http://localhost:" + port + " in your browser.");
+            System.out.println("Press Ctrl+C to stop.");
+        }
         tomcat.getServer().await();
     }
 

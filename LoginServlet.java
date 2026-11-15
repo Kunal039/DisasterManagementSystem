@@ -49,6 +49,12 @@ public class LoginServlet extends BaseServlet {
 
         switch (action(request)) {
             case "setup":
+                // On a public installation only someone who knows the setup code may create the first account
+                if (Settings.setupCodeRequired() && !Settings.setupCodeMatches(request.getParameter("setupCode"))) {
+                    throw new AppException(Settings.setupCodeConfigured()
+                            ? "The setup code is wrong."
+                            : "The first account cannot be created yet: set the DMS_SETUP_CODE environment variable.");
+                }
                 UserDao.checkUsername(username);
                 UserDao.checkNewPassword(password, password(request, "confirm"));
                 userDao.createFirstUser(username, password);
@@ -108,6 +114,10 @@ public class LoginServlet extends BaseServlet {
              .append("<p class=\"muted\">No account exists yet. Choose the user name and password ")
              .append("you will use to log in.</p>")
              .append(formStart(request, "setup", "form-stack"))
+             .append(Settings.setupCodeRequired()
+                     ? "<label>Setup code <span class=\"muted\">(the DMS_SETUP_CODE value of this installation)</span>"
+                       + "<input name=\"setupCode\" type=\"password\" maxlength=\"200\" autocomplete=\"off\" required></label>"
+                     : "")
              .append("<label>User name <input name=\"username\" maxlength=\"30\" autocomplete=\"username\" ")
              .append("required autofocus></label>")
              .append("<label>Password <span class=\"muted\">(at least 8 characters)</span>")
